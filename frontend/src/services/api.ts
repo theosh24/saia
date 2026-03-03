@@ -3,7 +3,7 @@
  * Uses Vite proxy in dev (/api → localhost:3001).
  */
 
-const BASE = import.meta.env.DEV ? "/api" : (import.meta.env.VITE_API_URL ?? "");
+const BASE = import.meta.env.DEV ? "/api" : (import.meta.env.VITE_API_URL || "https://api.saia578.com");
 
 async function request<T>(path: string, opts?: RequestInit): Promise<T> {
   const headers: Record<string, string> = {
