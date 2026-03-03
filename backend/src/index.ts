@@ -10,12 +10,22 @@ import chatRoutes from "./routes/chat";
 
 const app = express();
 const PORT = parseInt(process.env.PORT || "3001", 10);
-const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || "http://localhost:8080,http://localhost:3000").split(",");
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || "http://localhost:8080,http://localhost:3000").split(",").map(s => s.trim());
 
-// Middleware
+// Middleware — dynamic CORS: allow listed origins + any *.vercel.app preview
 app.use(
   cors({
-    origin: ALLOWED_ORIGINS,
+    origin: (origin, callback) => {
+      // Allow requests with no origin (curl, server-to-server)
+      if (!origin) return callback(null, true);
+      // Allow explicitly listed origins
+      if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+      // Allow any Vercel preview deployment
+      if (origin.endsWith(".vercel.app")) return callback(null, true);
+      // Allow localhost for dev
+      if (origin.startsWith("http://localhost:")) return callback(null, true);
+      callback(null, false);
+    },
     credentials: true,
   })
 );
