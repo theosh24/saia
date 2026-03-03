@@ -41,7 +41,7 @@ export default function AgentDetail() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `saia-agent-${agent.mint.slice(0, 8)}.json`;
+    a.download = `saia-agent-${agent.id.slice(0, 8)}.json`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -136,19 +136,21 @@ function IdentityTab({ agent }: { agent: Agent }) {
       <Field label="Description" value={agent.description} fullWidth />
       <Field label="Tags" value={agent.tags.length ? agent.tags.join(', ') : 'No tags'} />
       <Field label="Backend URI" value={agent.backendUri || 'Not configured'} mono />
-      <Field label="Logic Contract" value={agent.logicContract} mono copyable />
-      <Field label="Mint" value={agent.mint} mono copyable />
-      {agent.source === 'on-chain' && (
-        <div className="md:col-span-2">
-          <a
-            href={`https://explorer.solana.com/address/${agent.mint}?cluster=devnet`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline"
-          >
-            View on Solana Explorer <ExternalLink className="w-3 h-3" />
-          </a>
-        </div>
+      <Field label="Agent ID" value={agent.id} mono copyable />
+      {agent.mint && !agent.mint.startsWith('SAIA-') && (
+        <>
+          <Field label="Mint Address" value={agent.mint} mono copyable />
+          <div className="md:col-span-2">
+            <a
+              href={`https://explorer.solana.com/address/${agent.mint}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline"
+            >
+              View on Solana Explorer <ExternalLink className="w-3 h-3" />
+            </a>
+          </div>
+        </>
       )}
     </div>
   );
@@ -252,24 +254,28 @@ function StatCard({ label, value }: { label: string; value: string }) {
 // ── Audit Tab ─────────────────────────────────────────────────────────────────
 
 function AuditTab({ agent }: { agent: Agent }) {
+  const hasOnChainMint = agent.mint && !agent.mint.startsWith('SAIA-');
   const events = [
-    { time: agent.createdAt, action: 'Agent Created', detail: `Minted as ${agent.category} agent` },
-    ...(agent.evolutions > 0 ? [{ time: agent.createdAt, action: 'State Evolution', detail: `${agent.evolutions} evolution(s) recorded on-chain` }] : []),
+    { time: agent.createdAt, action: 'Agent Registered', detail: `Registered as ${agent.category} agent on SAIA578` },
+    ...(agent.evolutions > 0 ? [{ time: agent.createdAt, action: 'State Evolution', detail: `${agent.evolutions} evolution(s) recorded` }] : []),
     ...(agent.verified ? [{ time: agent.createdAt, action: 'Verification', detail: 'Agent identity verified' }] : []),
+    ...(hasOnChainMint ? [{ time: agent.createdAt, action: 'NFT Certificate Minted', detail: `On-chain: ${agent.mint.slice(0, 16)}...` }] : []),
   ];
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-sm font-medium text-foreground">On-Chain Activity</p>
-        <a
-          href={`https://explorer.solana.com/address/${agent.mint}?cluster=devnet`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-xs text-primary hover:underline flex items-center gap-1"
-        >
-          View on Explorer <ExternalLink className="w-3 h-3" />
-        </a>
+        <p className="text-sm font-medium text-foreground">Activity Log</p>
+        {hasOnChainMint && (
+          <a
+            href={`https://explorer.solana.com/address/${agent.mint}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs text-primary hover:underline flex items-center gap-1"
+          >
+            View on Explorer <ExternalLink className="w-3 h-3" />
+          </a>
+        )}
       </div>
 
       <div className="space-y-3">
@@ -288,8 +294,8 @@ function AuditTab({ agent }: { agent: Agent }) {
       </div>
 
       <div className="pt-2 space-y-2 text-xs">
-        <Field label="Mint Address" value={agent.mint} mono copyable />
-        <Field label="Agent State PDA" value={agent.logicContract} mono copyable />
+        <Field label="Agent ID" value={agent.id} mono copyable />
+        {hasOnChainMint && <Field label="Mint Address" value={agent.mint} mono copyable />}
       </div>
     </div>
   );
@@ -319,7 +325,7 @@ function ChatTab({ agent }: { agent: Agent }) {
     setInput('');
 
     try {
-      const res = await chatMutation.mutateAsync({ mint: agent.mint, message: userMsg, sessionId });
+      const res = await chatMutation.mutateAsync({ agentId: agent.id, message: userMsg, sessionId });
       setMessages((prev) => [...prev, { role: 'agent', text: res.reply }]);
     } catch {
       setMessages((prev) => [...prev, { role: 'agent', text: 'Error communicating with agent. Please try again.' }]);

@@ -50,8 +50,7 @@ export default function Chat() {
   };
 
   const handleAuth = async () => {
-    if (!selectedAgent) return;
-    await authenticate(selectedAgent.mint);
+    await authenticate();
   };
 
   const handleSend = async () => {
@@ -60,10 +59,9 @@ export default function Chat() {
     setMessages((prev) => [...prev, { role: 'user', text: userMsg }]);
     setInput('');
 
-    // Always try the backend API (supports both authenticated and demo mode)
     try {
       const res = await chatMutation.mutateAsync({
-        mint: selectedAgent.mint,
+        agentId: selectedAgent.id,
         message: userMsg,
         sessionId,
       });

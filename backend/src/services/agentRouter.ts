@@ -1,5 +1,3 @@
-import { PublicKey } from "@solana/web3.js";
-import { connection, deriveAgentStatePDA } from "./solana";
 import { createHash } from "crypto";
 import Anthropic from "@anthropic-ai/sdk";
 
@@ -9,7 +7,19 @@ interface ChatResponse {
   latencyMs: number;
 }
 
-// Lazy-init Claude client (only when ANTHROPIC_API_KEY is set)
+interface AgentData {
+  id: string;
+  name: string;
+  category: string;
+  backendUri: string;
+}
+
+interface ConversationMessage {
+  role: string;
+  content: string;
+}
+
+// Lazy-init Claude client
 let claude: Anthropic | null = null;
 function getClaude(): Anthropic | null {
   if (!process.env.ANTHROPIC_API_KEY) return null;
@@ -19,58 +29,21 @@ function getClaude(): Anthropic | null {
 
 /**
  * Route a chat message to the appropriate backend.
- *
- * 1. Read agent_state.backend_uri from chain (or cache)
- * 2. If backendURI is set → proxy the request to the developer's backend
- * 3. Otherwise → use Claude API as default AI backbone
+ * 1. If agent has a custom backendUri → proxy the request
+ * 2. Otherwise → use Claude API with conversation history
  */
 export async function routeChat(
-  mint: PublicKey,
+  agent: AgentData,
+  history: ConversationMessage[],
   message: string,
-  sessionId: string,
   wallet: string
 ): Promise<ChatResponse> {
   const start = Date.now();
-
-  // Fetch agent state to get backend_uri
-  const [agentStatePDA] = deriveAgentStatePDA(mint);
-  const accountInfo = await connection.getAccountInfo(agentStatePDA);
-
-  // Parse agent name and backend_uri from on-chain data
-  let backendUri = "";
-  let agentName = "SAIA Agent";
-  let agentType = "assistant";
-  if (accountInfo && accountInfo.data.length > 8) {
-    try {
-      // Skip discriminator(8) + mint(32) + creator(32) = offset 72
-      // agent_type: u8 at offset 72
-      const typeIdx = accountInfo.data.readUInt8(72);
-      const types = ["assistant", "oracle", "trader", "moderator", "custom"];
-      agentType = types[typeIdx] || "assistant";
-
-      // name: String at offset 73
-      let off = 73;
-      const nameLen = accountInfo.data.readUInt32LE(off);
-      off += 4;
-      agentName = accountInfo.data.subarray(off, off + nameLen).toString("utf-8");
-      off += nameLen;
-
-      // description: String
-      const descLen = accountInfo.data.readUInt32LE(off);
-      off += 4 + descLen;
-
-      // backend_uri: String
-      const uriLen = accountInfo.data.readUInt32LE(off);
-      off += 4;
-      backendUri = accountInfo.data.subarray(off, off + uriLen).toString("utf-8");
-    } catch {
-      // Parsing failed, use defaults
-    }
-  }
-
   let reply: string;
 
-  if (backendUri && !backendUri.includes("vector578.xyz")) {
+  const backendUri = agent.backendUri;
+
+  if (backendUri && !backendUri.includes("vector578.xyz") && !backendUri.includes("saia578.com")) {
     // Proxy to developer's custom backend
     try {
       const response = await fetch(backendUri, {
@@ -78,10 +51,9 @@ export async function routeChat(
         headers: {
           "Content-Type": "application/json",
           "X-NFA-Wallet": wallet,
-          "X-NFA-Mint": mint.toBase58(),
-          "X-NFA-Session": sessionId,
+          "X-NFA-Agent": agent.id,
         },
-        body: JSON.stringify({ message, sessionId }),
+        body: JSON.stringify({ message, history }),
       });
 
       if (!response.ok) {
@@ -98,43 +70,60 @@ export async function routeChat(
     const client = getClaude();
     if (client) {
       try {
-        const systemPrompt = buildSystemPrompt(agentName, agentType, mint.toBase58());
+        const systemPrompt = buildSystemPrompt(agent.name, agent.category, agent.id);
+
+        // Build conversation history for Claude (last 20 messages)
+        const claudeMessages: Anthropic.MessageParam[] = history
+          .slice(-20)
+          .map((msg) => ({
+            role: msg.role === "user" ? "user" : "assistant",
+            content: msg.content,
+          }));
+
+        // Add current user message
+        claudeMessages.push({ role: "user", content: message });
+
         const res = await client.messages.create({
           model: "claude-sonnet-4-20250514",
           max_tokens: 512,
           system: systemPrompt,
-          messages: [{ role: "user", content: message }],
+          messages: claudeMessages,
         });
+
         const textBlock = res.content.find((b) => b.type === "text");
-        reply = textBlock ? textBlock.text : "I couldn't generate a response.";
+        reply = textBlock ? (textBlock as any).text : "I couldn't generate a response.";
       } catch (err: any) {
         console.error("Claude API error:", err.message);
         reply = "AI service temporarily unavailable. Please try again.";
       }
     } else {
-      reply = `I'm ${agentName}, a ${agentType} agent on SAIA578. To enable AI chat, the backend needs an ANTHROPIC_API_KEY. Contact the platform admin to configure it.`;
+      reply = `I'm ${agent.name}, a ${agent.category} agent on SAIA578. To enable AI chat, set the ANTHROPIC_API_KEY environment variable on the backend.`;
     }
   }
 
   const latencyMs = Date.now() - start;
   const sessionHash = createHash("sha256")
-    .update(`${sessionId}:${message}:${reply}`)
+    .update(`${agent.id}:${message}:${reply}`)
     .digest("hex");
 
   return { reply, sessionHash, latencyMs };
 }
 
-function buildSystemPrompt(name: string, type: string, mint: string): string {
-  return `You are ${name}, a ${type} AI agent on the SAIA578 platform (Solana AI Agent Infrastructure).
+function buildSystemPrompt(name: string, category: string, agentId: string): string {
+  const type = category.toLowerCase();
+  return `You are ${name}, a ${category} AI agent on the SAIA578 platform (Solana AI Agent Infrastructure).
 
-Your NFT mint address is ${mint}.
+Your agent ID is ${agentId}.
 
 Role-specific behavior:
 ${type === "oracle" ? "- You provide price data, market analysis, and DeFi insights.\n- You can discuss crypto market trends and on-chain metrics." : ""}
-${type === "trader" ? "- You assist with trading strategies, portfolio analysis, and DeFi yield optimization.\n- You can discuss trade setups, risk management, and market conditions." : ""}
+${type === "trader" || type === "defi" ? "- You assist with trading strategies, portfolio analysis, and DeFi yield optimization.\n- You can discuss trade setups, risk management, and market conditions." : ""}
 ${type === "assistant" ? "- You are a helpful general-purpose AI assistant.\n- You help users navigate the SAIA578 platform and answer questions." : ""}
-${type === "moderator" ? "- You help moderate content and ensure compliance.\n- You can review and flag suspicious activity." : ""}
-${type === "custom" ? "- You are a custom agent with flexible capabilities.\n- Adapt your responses based on user needs." : ""}
+${type === "moderator" || type === "compliance" ? "- You help moderate content and ensure compliance.\n- You can review and flag suspicious activity." : ""}
+${type === "analytics" ? "- You specialize in data analysis and on-chain metrics.\n- Provide insightful analytics and DeFi data summaries." : ""}
+${type === "security" ? "- You specialize in cybersecurity monitoring and threat detection.\n- Help users understand risks and protect their assets." : ""}
+${type === "liquidity" ? "- You help manage liquidity across AMM pools and order books.\n- Advise on liquidity provision strategies and impermanent loss." : ""}
+${type === "content" ? "- You are a content generation specialist.\n- Help users create technical documentation, reports, and communications." : ""}
 
-Keep responses concise (2-4 sentences unless a longer response is needed). Be helpful and knowledgeable about Solana, DeFi, and AI agents.`;
+Keep responses concise and helpful. Be knowledgeable about Solana, DeFi, and AI agents.`;
 }

@@ -1,0 +1,74 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  wallet    String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+  lastSeen  DateTime @default(now()) @map("last_seen")
+
+  agents       Agent[]
+  chatSessions ChatSession[]
+
+  @@map("users")
+}
+
+model Agent {
+  id              String   @id @default(cuid())
+  mint            String?  @unique
+  name            String
+  slug            String   @unique
+  category        String   @default("Custom")
+  ownerWallet     String   @map("owner_wallet")
+  description     String   @default("")
+  verified        Boolean  @default(false)
+  kycLevel        Int      @default(0) @map("kyc_level")
+  retired         Boolean  @default(false)
+  tags            Json     @default("[]")
+  backendUri      String   @default("") @map("backend_uri")
+  evolutions      Int      @default(0)
+  reputationScore Float    @default(80.0) @map("reputation_score")
+  position        Json     @default("[0,10,0]")
+  color           String   @default("#00e5ff")
+  avatar          String   @default("")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  owner        User          @relation(fields: [ownerWallet], references: [wallet])
+  chatSessions ChatSession[]
+
+  @@map("agents")
+}
+
+model ChatSession {
+  id        String   @id @default(cuid())
+  agentId   String   @map("agent_id")
+  wallet    String
+  sessionId String   @unique @map("session_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  agent    Agent         @relation(fields: [agentId], references: [id])
+  user     User          @relation(fields: [wallet], references: [wallet])
+  messages ChatMessage[]
+
+  @@map("chat_sessions")
+}
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  sessionId String   @map("session_id")
+  role      String
+  content   String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  session ChatSession @relation(fields: [sessionId], references: [id])
+
+  @@index([sessionId])
+  @@map("chat_messages")
+}

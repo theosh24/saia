@@ -1,21 +1,20 @@
-import { PublicKey } from "@solana/web3.js";
-
 export interface JWTPayload {
   wallet: string;
-  mint: string;
+  mint?: string;
   iat: number;
   exp: number;
 }
 
 export interface VerifyOwnershipRequest {
   wallet: string;
-  mint: string;
+  mint?: string;
   message: string;
   signature: string;
 }
 
 export interface ChatRequest {
-  mint: string;
+  agentId?: string;
+  mint?: string;
   message: string;
   sessionId: string;
 }
@@ -23,7 +22,6 @@ export interface ChatRequest {
 export interface AgentContext {
   wallet: string;
   mint: string;
-  agentState?: any;
 }
 
 // Extend Express Request

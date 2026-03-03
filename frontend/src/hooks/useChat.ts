@@ -5,7 +5,7 @@ export function useSendChat() {
   return useMutation<
     ChatResponse,
     Error,
-    { mint: string; message: string; sessionId: string }
+    { agentId?: string; mint?: string; message: string; sessionId: string }
   >({
     mutationFn: sendChat,
   });

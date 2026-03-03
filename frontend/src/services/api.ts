@@ -1,5 +1,5 @@
 /**
- * API service layer — bridges frontend to Vector578 backend.
+ * API service layer — bridges frontend to SAIA578 backend.
  * Uses Vite proxy in dev (/api → localhost:3001).
  */
 
@@ -39,6 +39,7 @@ export interface Agent {
   id: string;
   mint: string;
   name: string;
+  slug?: string;
   category: string;
   owner: string;
   description: string;
@@ -68,7 +69,8 @@ export interface AgentsResponse {
 export interface AuthResponse {
   token: string;
   expiresIn: number;
-  agentMint: string;
+  wallet: string;
+  agentMint?: string;
 }
 
 export interface ChatResponse {
@@ -82,6 +84,15 @@ export interface HealthResponse {
   timestamp: string;
 }
 
+export interface CreateAgentRequest {
+  name: string;
+  category: string;
+  description?: string;
+  tags?: string[];
+  wallet: string;
+  backendUri?: string;
+}
+
 // ─── Endpoints ───────────────────────────────────────────────────────
 
 export function healthCheck(): Promise<HealthResponse> {
@@ -92,13 +103,31 @@ export function getAgents(page = 0, limit = 20): Promise<AgentsResponse> {
   return request(`/agents?page=${page}&limit=${limit}`);
 }
 
-export function getAgent(slugOrMint: string): Promise<Agent> {
-  return request(`/agents/${encodeURIComponent(slugOrMint)}`);
+export function getAgent(slugOrId: string): Promise<Agent> {
+  return request(`/agents/${encodeURIComponent(slugOrId)}`);
+}
+
+export function createAgent(body: CreateAgentRequest): Promise<Agent> {
+  return request("/agents", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function connectWallet(body: {
+  wallet: string;
+  message: string;
+  signature: string;
+}): Promise<AuthResponse> {
+  return request("/auth/connect", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
 }
 
 export function verifyOwnership(body: {
   wallet: string;
-  mint: string;
+  mint?: string;
   message: string;
   signature: string;
 }): Promise<AuthResponse> {
@@ -109,7 +138,8 @@ export function verifyOwnership(body: {
 }
 
 export function sendChat(body: {
-  mint: string;
+  agentId?: string;
+  mint?: string;
   message: string;
   sessionId: string;
 }): Promise<ChatResponse> {
@@ -120,10 +150,10 @@ export function sendChat(body: {
 }
 
 export function logSession(body: {
-  mint: string;
+  sessionId: string;
   sessionHash: string;
-  summaryHash: string;
-}): Promise<{ txSignature: string }> {
+  summaryHash?: string;
+}): Promise<{ txSignature: string; stored: boolean }> {
   return request("/chat/log-session", {
     method: "POST",
     body: JSON.stringify(body),

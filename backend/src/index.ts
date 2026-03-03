@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
+import prisma from "./services/db";
 import authRoutes from "./routes/auth";
 import agentsRoutes from "./routes/agents";
 import chatRoutes from "./routes/chat";
@@ -41,12 +42,17 @@ app.use("/auth", authRoutes);
 app.use("/agents", agentsRoutes);
 app.use("/chat", chatRoutes);
 
+// Graceful shutdown
+process.on("SIGTERM", async () => {
+  await prisma.$disconnect();
+  process.exit(0);
+});
+
 // Start server (skip in Vercel serverless environment)
 if (!process.env.VERCEL) {
   app.listen(PORT, () => {
-    console.log(`[Vector578] Backend API running on port ${PORT}`);
-    console.log(`[Vector578] RPC: ${process.env.SOLANA_RPC_URL || "https://api.devnet.solana.com"}`);
-    console.log(`[Vector578] CORS origins: ${ALLOWED_ORIGINS.join(", ")}`);
+    console.log(`[SAIA578] Backend API running on port ${PORT}`);
+    console.log(`[SAIA578] CORS origins: ${ALLOWED_ORIGINS.join(", ")}`);
   });
 }
 
