@@ -5,6 +5,10 @@ import { useWallet } from '@solana/wallet-adapter-react';
 import { useWalletModal } from '@solana/wallet-adapter-react-ui';
 import { createAgent } from '@/services/api';
 
+// SAIA token gate — will be enforced at launch
+const SAIA_REQUIRED = 100_000;
+const SAIA_LAUNCH_SOON = true; // flip to false once token is live
+
 const AGENT_TYPES = [
   { label: 'Assistant', value: 'Assistant' },
   { label: 'Oracle', value: 'Oracle' },
@@ -164,13 +168,17 @@ export default function IssueId() {
 
             <button
               onClick={handleCreate}
-              disabled={loading}
-              className="mt-6 w-full flex items-center justify-center gap-2 px-6 py-3 rounded-lg bg-gradient-to-r from-primary to-secondary text-primary-foreground font-semibold text-sm hover:opacity-90 transition-opacity disabled:opacity-50"
+              disabled={loading || SAIA_LAUNCH_SOON}
+              className="mt-6 w-full flex items-center justify-center gap-2 px-6 py-3 rounded-lg bg-gradient-to-r from-primary to-secondary text-primary-foreground font-semibold text-sm hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {loading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
                   Creating...
+                </>
+              ) : SAIA_LAUNCH_SOON ? (
+                <>
+                  Requires {SAIA_REQUIRED.toLocaleString()} SAIA
                 </>
               ) : !connected ? (
                 <>
@@ -186,7 +194,9 @@ export default function IssueId() {
             </button>
 
             <p className="mt-3 text-[11px] text-muted-foreground text-center">
-              Free · No transaction required · Registered on SAIA578
+              {SAIA_LAUNCH_SOON
+                ? `Agent creation opens at SAIA token launch — hold ${SAIA_REQUIRED.toLocaleString()}+ SAIA to access`
+                : 'Free · No transaction required · Registered on SAIA578'}
             </p>
           </>
         )}
