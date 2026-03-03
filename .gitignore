@@ -1,0 +1,13 @@
+target/
+node_modules/
+dist/
+.env
+.env.local
+test-ledger/
+.anchor/
+*.so
+*.deploy
+backend-wallet.json
+*-keypair.json
+Cargo.lock.bak
+.claude/settings.local.json

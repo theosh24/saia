@@ -1,0 +1,17 @@
+[workspace]
+members = [
+    "programs/spl578",
+    "programs/oracle_agent_578",
+    "programs/trading_agent_578",
+    "programs/assistant_agent_578",
+]
+resolver = "2"
+
+[workspace.dependencies]
+anchor-lang = "0.30.1"
+anchor-spl = "0.30.1"
+mpl-core = { version = "0.7", features = ["anchor"] }
+solana-program = "1.18"
+
+[profile.release]
+overflow-checks = true

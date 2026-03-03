@@ -1,0 +1,40 @@
+[toolchain]
+
+[features]
+resolution = true
+skip-lint = false
+
+[programs.devnet]
+assistant_agent_578 = "4nLSom9qXEFtippj3cCzXZmV3kWB1Sh3kLuaTPzNKB4B"
+oracle_agent_578 = "52o4JJkQnK4JAdQW2cFSM8PJJr23GXLgZiC76pPPS231"
+spl578 = "4xctWwmCg1JakNF1asQi8zpz3tB8DM3c58SMVPfByjW1"
+trading_agent_578 = "B5erFWbiHfswsDSFq5bxxjPAjMTQcgcFSXXvAPsXa9Bm"
+
+[programs.localnet]
+assistant_agent_578 = "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS"
+oracle_agent_578 = "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS"
+spl578 = "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS"
+trading_agent_578 = "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS"
+
+[registry]
+url = "https://api.apr.dev"
+
+[provider]
+cluster = "Devnet"
+wallet = "~/.config/solana/id.json"
+
+[scripts]
+test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"
+
+[test]
+startup_wait = 5000
+shutdown_wait = 2000
+upgradeable = false
+
+[test.validator]
+bind_address = "0.0.0.0"
+ledger = ".anchor/test-ledger"
+rpc_port = 8899
+
+[[test.validator.clone]]
+address = "CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d"
