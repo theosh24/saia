@@ -42,9 +42,18 @@ app.use(
 );
 app.use(express.json());
 
-// Health check
-app.get("/health", (_req, res) => {
-  res.json({ status: "ok", timestamp: new Date().toISOString() });
+// Health check — includes DB connectivity test
+app.get("/health", async (_req, res) => {
+  let dbStatus = "unknown";
+  let dbError = "";
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    dbStatus = "connected";
+  } catch (err: any) {
+    dbStatus = "error";
+    dbError = err.message?.slice(0, 200) || "unknown error";
+  }
+  res.json({ status: "ok", db: dbStatus, dbError: dbError || undefined, timestamp: new Date().toISOString() });
 });
 
 // Routes
