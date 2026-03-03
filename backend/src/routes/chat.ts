@@ -11,11 +11,12 @@ const router = Router();
 /**
  * POST /chat
  *
- * Send a message to an agent. Requires JWT authentication (NFA ownership).
+ * Send a message to an agent.
+ * If JWT is present → authenticated mode (verifies ownership).
+ * If no JWT → demo mode (no ownership check, uses agent's default AI).
  */
 router.post(
   "/",
-  nfaGate,
   apiLimiter,
   async (req: Request, res: Response): Promise<void> => {
     try {
@@ -26,19 +27,26 @@ router.post(
         return;
       }
 
-      // Verify the mint in the request matches the JWT
-      if (mint !== req.agentContext?.mint) {
-        res.status(403).json({ error: "Mint mismatch with authenticated token" });
-        return;
+      // If JWT present, verify it (but don't block if missing)
+      let wallet = "anonymous";
+      const authHeader = req.headers.authorization;
+      if (authHeader && authHeader.startsWith("Bearer ")) {
+        try {
+          const jwt = await import("jsonwebtoken");
+          const token = authHeader.slice(7);
+          const payload = jwt.default.verify(token, process.env.JWT_SECRET || "change-me") as { wallet: string; mint: string };
+          if (payload.mint !== mint) {
+            res.status(403).json({ error: "Mint mismatch with authenticated token" });
+            return;
+          }
+          wallet = payload.wallet;
+        } catch {
+          // Invalid token — allow as demo mode
+        }
       }
 
       const mintPubkey = new PublicKey(mint);
-      const response = await routeChat(
-        mintPubkey,
-        message,
-        sessionId,
-        req.agentContext!.wallet
-      );
+      const response = await routeChat(mintPubkey, message, sessionId, wallet);
 
       res.json({
         reply: response.reply,

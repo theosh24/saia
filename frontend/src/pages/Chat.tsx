@@ -60,29 +60,19 @@ export default function Chat() {
     setMessages((prev) => [...prev, { role: 'user', text: userMsg }]);
     setInput('');
 
-    if (isAuthenticated) {
-      // Send via backend API
-      try {
-        const res = await chatMutation.mutateAsync({
-          mint: selectedAgent.mint,
-          message: userMsg,
-          sessionId,
-        });
-        setMessages((prev) => [...prev, { role: 'agent', text: res.reply }]);
-      } catch {
-        setMessages((prev) => [
-          ...prev,
-          { role: 'agent', text: 'Error communicating with agent backend. Please try again.' },
-        ]);
-      }
-    } else {
-      // Demo mode: mock reply
-      setTimeout(() => {
-        setMessages((prev) => [
-          ...prev,
-          { role: 'agent', text: 'Connect your wallet and authenticate to chat with real agent backends. This is a demo response.' },
-        ]);
-      }, 600);
+    // Always try the backend API (supports both authenticated and demo mode)
+    try {
+      const res = await chatMutation.mutateAsync({
+        mint: selectedAgent.mint,
+        message: userMsg,
+        sessionId,
+      });
+      setMessages((prev) => [...prev, { role: 'agent', text: res.reply }]);
+    } catch {
+      setMessages((prev) => [
+        ...prev,
+        { role: 'agent', text: 'Error communicating with agent. Please try again.' },
+      ]);
     }
   };
 
