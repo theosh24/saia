@@ -31,11 +31,13 @@ app.use("/auth", authRoutes);
 app.use("/agents", agentsRoutes);
 app.use("/chat", chatRoutes);
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`[Vector578] Backend API running on port ${PORT}`);
-  console.log(`[Vector578] RPC: ${process.env.SOLANA_RPC_URL || "https://api.devnet.solana.com"}`);
-  console.log(`[Vector578] CORS origins: ${ALLOWED_ORIGINS.join(", ")}`);
-});
+// Start server (skip in Vercel serverless environment)
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`[Vector578] Backend API running on port ${PORT}`);
+    console.log(`[Vector578] RPC: ${process.env.SOLANA_RPC_URL || "https://api.devnet.solana.com"}`);
+    console.log(`[Vector578] CORS origins: ${ALLOWED_ORIGINS.join(", ")}`);
+  });
+}
 
 export default app;
