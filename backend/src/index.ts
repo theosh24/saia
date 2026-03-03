@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import { execSync } from "child_process";
 
 dotenv.config();
 
@@ -8,6 +9,15 @@ import prisma from "./services/db";
 import authRoutes from "./routes/auth";
 import agentsRoutes from "./routes/agents";
 import chatRoutes from "./routes/chat";
+
+// Sync DB schema at startup (runs prisma db push)
+try {
+  console.log("[SAIA578] Syncing database schema...");
+  execSync("npx prisma db push --accept-data-loss", { stdio: "inherit" });
+  console.log("[SAIA578] Database schema synced.");
+} catch (err) {
+  console.error("[SAIA578] DB schema sync failed (continuing anyway):", err);
+}
 
 const app = express();
 const PORT = parseInt(process.env.PORT || "3001", 10);
